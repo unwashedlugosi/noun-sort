@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Noun Sort</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
+<style>
+:root{
+  --bg:#f4f7fc; --surface:#ffffff; --ink:#18223b; --muted:#56627f; --line:#d5ddee;
+  --concrete:#1c7450; --concrete-soft:#e2f2e9;
+  --abstract:#6a3cbd; --abstract-soft:#eee7fa;
+  --hl:#ffe36b; --good:#1c7450; --good-soft:#e2f2e9; --bad:#b93a24; --bad-soft:#fbe8e3;
+  --focus:#2d5bd7; --accent:#18223b; --accent-ink:#ffffff;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1420; --surface:#181f2f; --ink:#e8ecf6; --muted:#9ba6c1; --line:#2b3550;
+    --concrete:#62d39d; --concrete-soft:#14301f; --abstract:#bb98ff; --abstract-soft:#271d42;
+    --hl:#6e5d12; --good:#62d39d; --good-soft:#14301f; --bad:#ff8c75; --bad-soft:#3a1c16;
+    --focus:#8fb0ff; --accent:#e8ecf6; --accent-ink:#0f1420;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1420; --surface:#181f2f; --ink:#e8ecf6; --muted:#9ba6c1; --line:#2b3550;
+  --concrete:#62d39d; --concrete-soft:#14301f; --abstract:#bb98ff; --abstract-soft:#271d42;
+  --hl:#6e5d12; --good:#62d39d; --good-soft:#14301f; --bad:#ff8c75; --bad-soft:#3a1c16;
+  --focus:#8fb0ff; --accent:#e8ecf6; --accent-ink:#0f1420;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5;padding-inline:16px;padding-block:20px 48px}
+#app{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mark{font-family:var(--display);font-weight:800;font-size:28px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:2px}
+.mark .c{color:var(--concrete)} .mark .a{color:var(--abstract)}
+.pill{font-size:14px;font-weight:700;padding:4px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.soon{color:var(--bad);border-color:var(--bad)}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* home */
+.hero{display:flex;flex-direction:column;gap:12px}
+.hero h2{font-size:26px}
+.btn{border:0;border-radius:12px;padding:14px 20px;font-weight:700;font-size:17px;background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.ladder{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.step{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);text-align:left;width:100%}
+.step[disabled]{opacity:.55;cursor:default}
+.step.current{border:2px solid var(--ink)}
+.num{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;background:var(--bg);border:1px solid var(--line)}
+.step.done .num{background:var(--good);color:var(--surface);border-color:var(--good)}
+.step .name{font-weight:700;display:block}
+.step .blurb{font-size:14px;color:var(--muted);display:block}
+.status{font-size:13px;font-weight:700;color:var(--muted);text-align:right;white-space:nowrap}
+.pips{display:inline-flex;gap:4px;vertical-align:middle}
+.pips i{width:9px;height:9px;border-radius:50%;border:2px solid var(--ink);display:block}
+.pips i.on{background:var(--ink)}
+.today{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:12px;border:1px dashed var(--line)}
+.tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.tag.C{background:var(--concrete-soft);color:var(--concrete)}
+.tag.A{background:var(--abstract-soft);color:var(--abstract)}
+.save{font-size:13px;color:var(--muted);text-align:center}
+
+/* round */
+.rhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.linkbtn{background:none;border:0;padding:6px 0;font-weight:700;color:var(--muted)}
+.dots{display:flex;gap:5px;flex-wrap:wrap}
+.dots i{width:12px;height:12px;border-radius:50%;background:var(--line);display:block}
+.dots i.done{background:var(--muted)} .dots i.ok{background:var(--good)} .dots i.no{background:var(--bad)} .dots i.now{background:var(--ink)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px 20px;display:flex;flex-direction:column;gap:18px;box-shadow:0 1px 0 var(--line)}
+.card.enter{animation:rise .22s ease-out}
+@keyframes rise{from{transform:translateY(6px);opacity:.4}to{transform:none;opacity:1}}
+.prompt{font-size:15px;font-weight:700;color:var(--muted)}
+.prompt .ask{padding:1px 8px;border-radius:6px}
+.prompt .ask.A{background:var(--abstract-soft);color:var(--abstract)}
+.prompt .ask.C{background:var(--concrete-soft);color:var(--concrete)}
+.big{font-family:var(--display);font-weight:600;font-size:clamp(24px,6vw,32px);line-height:1.3}
+.big.word{font-size:clamp(36px,10vw,52px);font-weight:800;text-align:center;padding-block:8px}
+u.t{text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:5px;background:linear-gradient(transparent 58%,var(--hl) 58%);padding-inline:2px}
+.retry{font-size:13px;font-weight:700;color:var(--bad)}
+.sort{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.choice{border-radius:14px;padding:16px 12px;border:2px solid;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:700;font-size:20px;font-family:var(--display)}
+.choice small{font-family:var(--body);font-weight:400;font-size:13px}
+.choice.C{background:var(--concrete-soft);color:var(--concrete);border-color:var(--concrete)}
+.choice.A{background:var(--abstract-soft);color:var(--abstract);border-color:var(--abstract)}
+.choice:disabled{cursor:default;opacity:.45}
+.choice.picked{opacity:1;box-shadow:0 0 0 3px var(--surface),0 0 0 6px currentColor}
+.key{font-family:var(--body);font-size:12px;opacity:.75;font-weight:700}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;color:var(--muted)}
+.words{display:flex;flex-wrap:wrap;gap:6px 4px;font-family:var(--display);font-weight:600;font-size:clamp(22px,5.5vw,28px);line-height:1.3}
+.w{border:2px solid transparent;border-radius:8px;padding:2px 6px;background:none}
+.w:hover:not(:disabled){border-color:var(--line)}
+.w:disabled{cursor:default}
+.w.nope{border-color:var(--line);color:var(--muted)}
+.w.right{border-color:var(--good);background:var(--good-soft)}
+.w.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.frame{font-size:clamp(20px,5vw,24px);line-height:1.4}
+.blank{display:inline-block;min-width:5em;border-bottom:3px solid var(--ink);text-align:center;font-weight:700}
+form.write{display:flex;gap:10px;flex-wrap:wrap}
+form.write input{flex:1 1 180px;min-width:0;font-size:20px;padding:12px 14px;border-radius:12px;border:2px solid var(--line);background:var(--bg)}
+.hint{font-size:15px;color:var(--muted)}
+.fb{border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.fb.ok{background:var(--good-soft)} .fb.no{background:var(--bad-soft)}
+.fb h3{font-size:20px}
+.fb.ok h3{color:var(--good)} .fb.no h3{color:var(--bad)}
+.fb .clue{font-size:14px;color:var(--muted)}
+.nudge{font-size:15px;color:var(--muted);min-height:1.5em}
+
+/* summary */
+.score{font-family:var(--display);font-weight:800;font-size:64px;line-height:1;font-variant-numeric:tabular-nums}
+.misslist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.misslist li{padding:12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+@media (max-width:420px){ .step{grid-template-columns:36px 1fr} .step .status{grid-column:2;text-align:left} }
+@media (hover: none){ .key{display:none} }
+@media (prefers-reduced-motion: reduce){ .card.enter{animation:none} }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="content.js"></script>
+<script src="store.js"></script>
+<script>
+/* ---------- State ---------- */
+let progress = freshProgress();
+let rounds = [];            // newest first
+let saveState = "connecting";
+let loaded = false;   // true once progress has been read from the database
+let screen = "home";
+let round = null;
+let lastSummary = null;
+
+const app = document.getElementById("app");
+
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs || {})){
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, "");
+    else el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()){
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+function shuffle(arr){ const a = arr.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function suffixClue(word){
+  const w = word.toLowerCase();
+  const s = SUFFIXES.find(x => w.endsWith(x) && w.length > x.length + 2);
+  return s ? "Clue: words ending in -" + s + " are usually abstract." : null;
+}
+
+/* ---------- Picking questions (spaced, interleaved, weakest first) ---------- */
+function priority(id){ const b = progress.boxes[id] || 0; return b === 0 ? 1.5 : b; } // missed (1) first, then new, then known
+function ranked(pool){
+  return pool.map(it => ({it, p:priority(it.id), s:(progress.seen[it.id] ?? -1), r:Math.random()}))
+    .sort((x,y) => x.p - y.p || x.s - y.s || x.r - y.r).map(x => x.it);
+}
+function pickBalanced(pool, n){
+  const groups = {};
+  for (const it of ranked(pool)){ const k = itemKind(it) || "x"; (groups[k] = groups[k] || []).push(it); }
+  const keys = shuffle(Object.keys(groups)), out = [];
+  while (out.length < n && keys.some(k => groups[k].length)){
+    for (const k of keys){ if (out.length < n && groups[k].length) out.push(groups[k].shift()); }
+  }
+  return out;
+}
+function buildLevelRound(level){
+  const cur = ITEMS.filter(i => i.lv === level);
+  let q = pickBalanced(cur, level === 1 ? ROUND_SIZE : 7);
+  if (level > 1) q = q.concat(pickBalanced(ITEMS.filter(i => i.lv < level), ROUND_SIZE - q.length));
+  return shuffle(q);
+}
+function buildTestRound(){
+  return shuffle(pickBalanced(ITEMS.filter(i => i.t === "sentence"), TEST_SIZE));
+}
+
+/* ---------- Data ---------- */
+async function refresh(){
+  if (!Store.ready){ saveState = "nolink"; return; }
+  try {
+    const d = await Store.load();
+    progress = d.progress; rounds = d.rounds; loaded = true; saveState = "saved";
+  } catch (e){ saveState = "offline"; }
+}
+async function saveAll(roundDoc){
+  if (!Store.ready){ rounds.unshift(roundDoc); return; }
+  const mine = loaded ? progress : null; // never overwrite saved progress with one we couldn't load
+  try {
+    await Store.update(doc => {
+      if (mine) doc.progress = Object.assign({}, mine, {testDate: doc.progress.testDate}); // the parents site owns the test date
+      doc.rounds.push(roundDoc);
+    });
+    rounds.unshift(roundDoc); saveState = mine ? "saved" : "partial";
+  } catch (e){ saveState = "error"; }
+}
+
+/* ---------- Round flow ---------- */
+async function startRound(mode, level){
+  if (Store.ready && saveState !== "error"){ await refresh(); if (mode === "level") level = Math.min(level, progress.level); }
+  const items = mode === "test" ? buildTestRound() : buildLevelRound(level);
+  round = {mode, level, queue: items.map(item => ({item, retry:false})), base: items.length, i:0, results:[], answered:false, nudge:"", fresh:true};
+  screen = "round";
+  render();
+}
+function recordFirst(item, ok){
+  round.results.push({id:item.id, ok});
+  const b = progress.boxes[item.id] || 0;
+  progress.boxes[item.id] = ok ? Math.min(4, Math.max(b,1) + 1) : 1;
+  if (!ok) progress.misses[item.id] = (progress.misses[item.id] || 0) + 1;
+}
+function grade(ok, detail){
+  const q = round.queue[round.i];
+  round.answered = true;
+  round.detail = Object.assign({ok}, detail);
+  if (!q.retry){
+    recordFirst(q.item, ok);
+    if (!ok && round.mode === "level") round.queue.push({item:q.item, retry:true});
+  }
+  if (round.mode === "test"){ next(); return; }
+  render();
+  const nb = document.getElementById("next"); if (nb) nb.focus();
+}
+function next(){
+  round.i++; round.answered = false; round.detail = null; round.nudge = ""; round.fresh = true;
+  if (round.i >= round.queue.length) finishRound(); else render();
+}
+async function finishRound(){
+  const score = round.results.filter(r => r.ok).length, total = round.results.length;
+  progress.roundCount++;
+  for (const r of round.results) progress.seen[r.id] = progress.roundCount;
+  let message = "", advanced = false;
+  const complete = round.results.length >= round.base;
+  if (!complete){
+    message = "Round ended early. The words you answered still count toward practice.";
+  } else if (round.mode === "level" && round.level === progress.level && !progress.cleared){
+    const pass = score >= Math.ceil(total * 0.8);
+    if (score === total || (pass && progress.passStreak >= 1)){
+      advanced = true; progress.passStreak = 0;
+      if (progress.level >= LEVELS.length){ progress.cleared = true; message = "You cleared every level. Keep sharp with the practice test and mixed rounds."; }
+      else { progress.level++; message = "Level " + progress.level + " unlocked: " + LEVELS[progress.level-1].name + "."; }
+    } else if (pass){
+      progress.passStreak = 1; message = "One more round at 8 or better unlocks the next level.";
+    } else {
+      progress.passStreak = 0; message = "Keep going. Get 8 or better twice in a row (or a perfect round) to move up.";
+    }
+  } else if (round.mode === "test"){
+    message = score >= Math.ceil(total * 0.9) ? "Test-ready." : "Look over the ones you missed, then try another round.";
+  } else {
+    message = "Review round done.";
+  }
+  lastSummary = {mode:round.mode, level:round.level, score, total, message, advanced, missed: round.results.filter(r => !r.ok).map(r => r.id)};
+  const doc = {at: Date.now(), mode: round.mode, level: round.level, score, total, missed: lastSummary.missed};
+  round = null; screen = "summary"; render();
+  await saveAll(doc); render();
+}
+
+/* ---------- Views ---------- */
+function daysUntil(dateStr){
+  const [y,m,d] = (dateStr || "").split("-").map(Number); if (!y) return null;
+  const t = new Date(y, m-1, d), n = new Date(); n.setHours(0,0,0,0);
+  return Math.round((t - n) / 86400000);
+}
+function testPill(){
+  const days = daysUntil(progress.testDate); if (days == null || days < 0) return null;
+  const [y,m,d] = progress.testDate.split("-").map(Number);
+  const wd = new Date(y, m-1, d).toLocaleDateString("en-US", {weekday:"long"});
+  const txt = days === 0 ? "Test today" : days === 1 ? "Test tomorrow" : "Test " + wd + " · " + days + " days";
+  return h("span", {class: "pill" + (days <= 1 ? " soon" : "")}, txt);
+}
+function header(){
+  return h("div", {class:"top"},
+    h("div", {class:"mark", "aria-label":"Noun Sort"}, h("span",{class:"c"},"Noun"), h("span",{class:"a"},"Sort")),
+    testPill());
+}
+function startOfToday(){ const n = new Date(); n.setHours(0,0,0,0); return n.getTime(); }
+function saveLine(){
+  const t = {connecting:"Connecting…", saved:"Progress saved.", nolink:"Open this from the link a parent sent you so your progress saves.", partial:"Round saved. Level progress will save once the connection is steady.", local:"Practice only: this copy isn't connected to the database, so progress won't be saved.", offline:"Can't reach the database. You can still practice; check the internet connection.", error:"Couldn't save the last round. Check the internet connection; your next round will save everything."}[saveState];
+  return h("p", {class:"save"}, t);
+}
+
+function renderHome(){
+  const lv = progress.level;
+  const todayRounds = rounds.filter(r => r.at >= startOfToday()).length;
+  const cur = LEVELS[lv-1];
+  const ladder = h("ol", {class:"ladder"}, LEVELS.map(L => {
+    const done = L.n < lv || (L.n === lv && progress.cleared);
+    const current = L.n === lv && !progress.cleared;
+    const locked = L.n > lv;
+    const status = done ? "Cleared" : current
+      ? h("span", {}, h("span",{class:"pips","aria-label":progress.passStreak + " of 2 passing rounds"}, h("i",{class: progress.passStreak>=1?"on":""}), h("i",{})))
+      : "Locked";
+    return h("li", {}, h("button", {class:"step" + (done?" done":"") + (current?" current":""), disabled: locked, onclick: () => startRound("level", L.n)},
+      h("span", {class:"num"}, L.n),
+      h("span", {}, h("span",{class:"name"}, L.name), h("span",{class:"blurb"}, L.blurb)),
+      h("span", {class:"status"}, status)));
+  }));
+  app.replaceChildren(
+    header(),
+    h("section", {class:"hero"},
+      h("div", {class:"eyebrow"}, progress.cleared ? "All levels cleared" : "Level " + lv + " of " + LEVELS.length),
+      h("h2", {}, progress.cleared ? "Keep it fresh with a practice test." : cur.name + ": " + cur.blurb),
+      h("div", {class:"row"},
+        h("button", {class:"btn", onclick: () => startRound("level", lv)}, progress.cleared ? "Mixed round" : "Play level " + lv),
+        h("button", {class:"btn ghost", onclick: () => startRound("test")}, "Practice test (16)"))),
+    h("div", {class:"today"},
+      h("span", {}, h("b", {}, "Today: "), todayRounds + (todayRounds === 1 ? " round" : " rounds")),
+      h("span", {class:"muted"}, "A few short rounds a day beats one long one.")),
+    ladder,
+    saveLine());
+}
+
+function renderRound(){
+  const q = round.queue[round.i], it = q.item, d = round.detail;
+  const dots = h("div", {class:"dots", "aria-label":"Question " + Math.min(round.i+1, round.base) + " of " + round.base},
+    Array.from({length: round.base}, (_,k) => {
+      const r = round.results[k];
+      const cls = r ? (round.mode === "test" ? "done" : (r.ok ? "ok" : "no")) : (k === round.i ? "now" : "");
+      return h("i", {class: cls});
+    }));
+  const title = round.mode === "test" ? "Practice test" : "Level " + round.level + " · " + LEVELS[round.level-1].name;
+  const card = h("div", {class:"card" + (round.fresh ? " enter" : "")});
+  round.fresh = false;
+  if (q.retry) card.append(h("div", {class:"retry"}, "Try this one again"));
+
+  const showLegend = round.mode === "level" && round.level <= 2;
+  if (it.t === "word" || it.t === "sentence"){
+    card.append(h("div", {class:"prompt"}, it.t === "word" ? "Is this noun concrete or abstract?" : "Is the underlined noun concrete or abstract?"));
+    if (it.t === "word") card.append(h("div", {class:"big word"}, it.text));
+    else {
+      const [pre, rest] = it.text.split("["), [noun, post] = rest.split("]");
+      card.append(h("div", {class:"big"}, pre, h("u", {class:"t"}, noun), post));
+    }
+    const choice = k => h("button", {class:"choice " + k + (d && (d.pick === k || it.a === k) ? " picked" : ""), disabled: round.answered, onclick: () => grade(k === it.a, {pick:k})},
+      k === "C" ? "Concrete" : "Abstract", h("span", {class:"key"}, "press " + (k === "C" ? "C" : "A")));
+    card.append(h("div", {class:"sort"}, choice("C"), choice("A")));
+    if (showLegend) card.append(h("div", {class:"legend"},
+      h("span", {}, "Can be seen, touched, heard, or tasted."),
+      h("span", {}, "Can't be sensed. An idea, feeling, or quality.")));
+  } else if (it.t === "tap"){
+    card.append(h("div", {class:"prompt"}, "Tap the ", h("span", {class:"ask " + it.ask}, it.ask === "A" ? "ABSTRACT" : "CONCRETE"), " noun."));
+    const words = h("div", {class:"words"});
+    for (const tok of it.text.split(" ")){
+      const key = tok.toLowerCase().replace(/[^a-z']/g, "").replace(/'s$/, "").replace(/'/g, "");
+      const kind = it.nouns[key];
+      let cls = "w";
+      if (d){ if (kind === it.ask) cls += " right"; else if (key === d.tapped) cls += " wrong"; }
+      else if (round.tried && round.tried.has(key)) cls += " nope";
+      words.append(h("button", {class: cls, disabled: round.answered, onclick: () => {
+        if (!kind){ round.tried = round.tried || new Set(); round.tried.add(key); round.nudge = "“" + tok.replace(/[.,!?]/g,"") + "” isn't a noun. Look for a person, place, thing, or idea."; render(); return; }
+        round.tried = null;
+        grade(kind === it.ask, {tapped:key, tappedKind:kind});
+      }}, tok));
+    }
+    card.append(words);
+    if (!round.answered) card.append(h("div", {class:"nudge", role:"status"}, round.nudge));
+  } else if (it.t === "write"){
+    const [pre, post] = it.frame.split("___");
+    card.append(h("div", {class:"prompt"}, "Turn “" + it.base + "” into an abstract noun."));
+    card.append(h("div", {class:"frame"}, pre, h("span", {class:"blank"}, d ? d.typed || " " : " "), post));
+    if (!round.answered){
+      const input = h("input", {id:"ans", type:"text", autocomplete:"off", autocapitalize:"off", spellcheck:"false", "aria-label":"Abstract noun"});
+      card.append(h("form", {class:"write", onsubmit: e => {
+        e.preventDefault();
+        const typed = input.value.trim().toLowerCase().replace(/[^a-z]/g, "");
+        if (!typed) return;
+        const exact = it.answers.includes(typed);
+        const close = !exact && typed.length > 3 && it.answers.some(a => lev(typed, a) <= 1);
+        grade(exact || close, {typed, spelling: close});
+      }}, input, h("button", {class:"btn", type:"submit"}, "Check")));
+      if (showLegend) card.append(h("p", {class:"hint"}, "Endings that make abstract nouns: -ness, -ship, -hood, -dom, -ity, -ment, -ence."));
+      setTimeout(() => input.focus(), 0);
+    }
+  }
+
+  if (d && round.mode !== "test") card.append(feedback(it, d));
+  if (round.answered && round.mode !== "test")
+    card.append(h("button", {id:"next", class:"btn", onclick: next}, round.i + 1 >= round.queue.length ? "See results" : "Next"));
+
+  app.replaceChildren(
+    h("div", {class:"rhead"}, h("button", {class:"linkbtn", onclick: () => { if (round.results.length) finishRound(); else { round = null; screen = "home"; render(); } }}, "← Done for now"), dots),
+    h("div", {class:"eyebrow"}, title),
+    card);
+}
+
+function feedback(it, d){
+  let head, extra = null;
+  if (it.t === "write"){
+    head = d.ok ? (d.spelling ? "Close. Check the spelling: " + it.answers[0] : "Right: " + (it.answers.includes(d.typed) ? d.typed : it.answers[0]))
+                : "The word is “" + it.answers[0] + ".”";
+  } else if (it.t === "tap"){
+    const right = targetOf(it);
+    head = d.ok ? "Right. “" + right + "” is the " + label(it.ask) + " noun."
+                : "“" + d.tapped + "” is " + label(d.tappedKind) + ". The " + label(it.ask) + " noun is “" + right + ".”";
+  } else {
+    head = d.ok ? "Right. It's " + label(it.a) + "." : "Not quite. It's " + label(it.a) + ".";
+    if (it.a === "A") extra = suffixClue(targetOf(it));
+  }
+  return h("div", {class:"fb " + (d.ok ? "ok" : "no"), role:"status"},
+    h("h3", {}, head), h("div", {}, it.why), extra ? h("div", {class:"clue"}, extra) : null);
+}
+
+function renderSummary(){
+  const s = lastSummary;
+  const nextLevel = s.mode === "level" && s.advanced && !progress.cleared ? progress.level : s.level;
+  app.replaceChildren(
+    header(),
+    h("section", {class:"hero"},
+      h("div", {class:"eyebrow"}, s.mode === "test" ? "Practice test" : "Level " + s.level + " · " + LEVELS[s.level-1].name),
+      h("div", {class:"score"}, s.score + " / " + s.total),
+      h("h2", {}, s.message),
+      h("div", {class:"row"},
+        s.mode === "test"
+          ? h("button", {class:"btn", onclick: () => startRound("test")}, "Another practice test")
+          : h("button", {class:"btn", onclick: () => startRound("level", nextLevel)}, s.advanced && !progress.cleared ? "Play level " + nextLevel : "Play again"),
+        h("button", {class:"btn ghost", onclick: () => { screen = "home"; render(); }}, "Home"))),
+    s.missed.length ? h("section", {class:"hero"},
+      h("h3", {}, "Look these over"),
+      h("ul", {class:"misslist"}, s.missed.map(id => { const it = BY_ID[id], k = itemKind(it);
+        return h("li", {},
+          h("div", {}, h("b", {}, itemPlain(it)),
+            " ", k && it.t !== "tap" ? h("span", {class:"tag " + k}, label(k)) : null),
+          it.t === "tap" ? h("div", {}, "The " + label(it.ask) + " noun: ", h("b", {}, targetOf(it))) : null,
+          h("div", {class:"small muted"}, it.why)); }))) : null,
+    saveLine());
+}
+
+function render(){
+  if (screen === "round" && round) renderRound();
+  else if (screen === "summary" && lastSummary) renderSummary();
+  else { screen = "home"; renderHome(); }
+}
+
+function lev(a, b){
+  const m = Array.from({length:a.length+1}, (_,i) => [i]);
+  for (let j=1;j<=b.length;j++) m[0][j] = j;
+  for (let i=1;i<=a.length;i++) for (let j=1;j<=b.length;j++)
+    m[i][j] = Math.min(m[i-1][j]+1, m[i][j-1]+1, m[i-1][j-1] + (a[i-1]===b[j-1]?0:1));
+  return m[a.length][b.length];
+}
+
+document.addEventListener("keydown", e => {
+  if (screen !== "round" || !round || round.answered || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target && e.target.tagName === "INPUT") return;
+  const it = round.queue[round.i].item;
+  if (it.t !== "word" && it.t !== "sentence") return;
+  const k = e.key.toLowerCase();
+  if (k === "c" || k === "a") grade(k.toUpperCase() === it.a, {pick:k.toUpperCase()});
+});
+
+render();
+refresh().then(render);
+</script>
+</body>
+</html>
