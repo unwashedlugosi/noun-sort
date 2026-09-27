@@ -73,6 +73,7 @@ button{cursor:pointer}
 .tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .tag.C{background:var(--concrete-soft);color:var(--concrete)}
 .tag.A{background:var(--abstract-soft);color:var(--abstract)}
+.plink{color:var(--muted)}
 .save{font-size:13px;color:var(--muted);text-align:center}
 
 /* round */
@@ -195,8 +196,12 @@ function buildTestRound(){
 }
 
 /* ---------- Data ---------- */
+const PARENTS_URL = "https://unwashedlugosi.github.io/noun-sort-parents/";
 async function refresh(){
-  if (!Store.ready){ saveState = "nolink"; return; }
+  if (!Store.ready){
+    try { await Store.create(); } catch (e){ saveState = "offline"; return; }
+  }
+  if (location.hash.slice(1) !== Store.id) history.replaceState(null, "", "#" + Store.id); // bookmarks keep the progress link
   try {
     const d = await Store.load();
     progress = d.progress; rounds = d.rounds; loaded = true; saveState = "saved";
@@ -326,6 +331,7 @@ function renderHome(){
       h("span", {}, h("b", {}, "Today: "), todayRounds + (todayRounds === 1 ? " round" : " rounds")),
       h("span", {class:"muted"}, "A few short rounds a day beats one long one.")),
     ladder,
+    Store.ready ? h("p", {class:"save"}, h("a", {href: PARENTS_URL + "#" + Store.id, target:"_blank", rel:"noopener", class:"plink"}, "Parents")) : null,
     saveLine());
 }
 
