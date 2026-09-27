@@ -195,8 +195,28 @@ function buildTestRound(){
   return shuffle(pickBalanced(ITEMS.filter(i => i.t === "sentence"), TEST_SIZE));
 }
 
-/* ---------- Data ---------- */
+/* ---------- Data ----------
+   Every finished round is written to this browser first, then synced to the
+   online database. Whichever copy has more rounds wins, so a refresh, a
+   database outage, or a failed sync never loses progress. */
 const PARENTS_URL = "https://unwashedlugosi.github.io/noun-sort-parents/";
+const LOCAL = "nounSort.local";
+function readLocal(){
+  try { const v = JSON.parse(localStorage.getItem(LOCAL) || "null"); return v && v.progress ? v : null; } catch (e){ return null; }
+}
+function writeLocal(){
+  try { localStorage.setItem(LOCAL, JSON.stringify({progress, rounds: rounds.slice(0, 300)})); } catch (e){}
+}
+function mergeRounds(a, b){ // newest first, no duplicates
+  const m = new Map();
+  for (const r of a.concat(b)) m.set(r.at + ":" + r.mode + ":" + r.level + ":" + r.score, r);
+  return [...m.values()].sort((x, y) => y.at - x.at);
+}
+(function restoreLocal(){
+  const local = readLocal();
+  if (local){ progress = Object.assign(freshProgress(), local.progress); rounds = local.rounds || []; }
+})();
+
 async function refresh(){
   if (!Store.ready){
     try { await Store.create(); } catch (e){ saveState = "offline"; return; }
@@ -204,24 +224,36 @@ async function refresh(){
   if (location.hash.slice(1) !== Store.id) history.replaceState(null, "", "#" + Store.id); // bookmarks keep the progress link
   try {
     const d = await Store.load();
-    progress = d.progress; rounds = d.rounds; loaded = true; saveState = "saved";
+    const resetOnline = (d.progress.resetAt || 0) > (progress.resetAt || 0); // a parent pressed Reset
+    const localAhead = !resetOnline && (progress.roundCount || 0) > (d.progress.roundCount || 0);
+    if (!localAhead) progress = d.progress;
+    else progress.testDate = d.progress.testDate; // the parents site owns the test date
+    rounds = mergeRounds(rounds, d.rounds);
+    loaded = true; saveState = "saved";
+    writeLocal();
+    if (localAhead || rounds.length > d.rounds.length) await pushAll();
   } catch (e){ saveState = "offline"; }
 }
-async function saveAll(roundDoc){
-  if (!Store.ready){ rounds.unshift(roundDoc); return; }
-  const mine = loaded ? progress : null; // never overwrite saved progress with one we couldn't load
+async function pushAll(){
   try {
     await Store.update(doc => {
-      if (mine) doc.progress = Object.assign({}, mine, {testDate: doc.progress.testDate}); // the parents site owns the test date
-      doc.rounds.push(roundDoc);
+      doc.progress = Object.assign({}, progress, {testDate: doc.progress.testDate});
+      doc.rounds = mergeRounds(doc.rounds, rounds).reverse();
     });
-    rounds.unshift(roundDoc); saveState = mine ? "saved" : "partial";
+    saveState = "saved";
   } catch (e){ saveState = "error"; }
+}
+async function saveAll(roundDoc){
+  rounds = mergeRounds([roundDoc], rounds);
+  writeLocal();                       // safe on this computer no matter what happens next
+  if (!loaded) await refresh();       // also pushes, since this copy is now ahead
+  else await pushAll();
+  if (!loaded) saveState = "offline";
 }
 
 /* ---------- Round flow ---------- */
 async function startRound(mode, level){
-  if (Store.ready && saveState !== "error"){ await refresh(); if (mode === "level") level = Math.min(level, progress.level); }
+  await refresh(); if (mode === "level") level = Math.min(level, progress.level);
   const items = mode === "test" ? buildTestRound() : buildLevelRound(level);
   round = {mode, level, queue: items.map(item => ({item, retry:false})), base: items.length, i:0, results:[], answered:false, nudge:"", fresh:true};
   screen = "round";
@@ -299,7 +331,7 @@ function header(){
 }
 function startOfToday(){ const n = new Date(); n.setHours(0,0,0,0); return n.getTime(); }
 function saveLine(){
-  const t = {connecting:"Connecting…", saved:"Progress saved.", nolink:"Open this from the link a parent sent you so your progress saves.", partial:"Round saved. Level progress will save once the connection is steady.", local:"Practice only: this copy isn't connected to the database, so progress won't be saved.", offline:"Can't reach the database. You can still practice; check the internet connection.", error:"Couldn't save the last round. Check the internet connection; your next round will save everything."}[saveState];
+  const t = {connecting:"Connecting…", saved:"Progress saved.", localonly:"Progress is saved on this computer.", nolink:"Open this from the link a parent sent you so your progress saves.", partial:"Round saved. Level progress will save once the connection is steady.", local:"Practice only: this copy isn't connected to the database, so progress won't be saved.", offline:"Progress is saved on this computer. It will sync online when the connection works.", error:"Progress is saved on this computer. The online copy will catch up on the next round."}[saveState];
   return h("p", {class:"save"}, t);
 }
 
