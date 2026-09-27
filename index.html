@@ -390,8 +390,8 @@ function renderRound(){
         const typed = input.value.trim().toLowerCase().replace(/[^a-z]/g, "");
         if (!typed) return;
         const exact = it.answers.includes(typed);
-        const close = !exact && typed.length > 3 && it.answers.some(a => lev(typed, a) <= 1);
-        grade(exact || close, {typed, spelling: close});
+        const near = exact ? null : closeMatch(typed, it);
+        grade(exact || !!near, {typed, spelling: near});
       }}, input, h("button", {class:"btn", type:"submit"}, "Check")));
       if (showLegend) card.append(h("p", {class:"hint"}, "Endings that make abstract nouns: -ness, -ship, -hood, -dom, -ity, -ment, -ence."));
       setTimeout(() => input.focus(), 0);
@@ -411,7 +411,7 @@ function renderRound(){
 function feedback(it, d){
   let head, extra = null;
   if (it.t === "write"){
-    head = d.ok ? (d.spelling ? "Close. Check the spelling: " + it.answers[0] : "Right: " + (it.answers.includes(d.typed) ? d.typed : it.answers[0]))
+    head = d.ok ? (d.spelling ? "Right. It's spelled \u201c" + d.spelling + ".\u201d" : "Right: " + d.typed)
                 : "The word is “" + it.answers[0] + ".”";
   } else if (it.t === "tap"){
     const right = targetOf(it);
@@ -456,11 +456,21 @@ function render(){
   else { screen = "home"; renderHome(); }
 }
 
+// Spelling doesn't count against him: an answer close to the right word is correct,
+// as long as it's at least as close to the abstract noun as to the starting word (so "patient" for patient → patience is still wrong).
+function closeMatch(typed, it){
+  if (typed.length < 3) return null;
+  let best = null, bestD = Infinity;
+  for (const a of it.answers){ const d = lev(typed, a); if (d < bestD){ best = a; bestD = d; } }
+  const tol = best.length <= 5 ? 1 : best.length <= 9 ? 2 : 3;
+  return bestD <= tol && typed !== it.base && bestD <= lev(typed, it.base) ? best : null;
+}
 function lev(a, b){
   const m = Array.from({length:a.length+1}, (_,i) => [i]);
   for (let j=1;j<=b.length;j++) m[0][j] = j;
   for (let i=1;i<=a.length;i++) for (let j=1;j<=b.length;j++)
-    m[i][j] = Math.min(m[i-1][j]+1, m[i][j-1]+1, m[i-1][j-1] + (a[i-1]===b[j-1]?0:1));
+  { m[i][j] = Math.min(m[i-1][j]+1, m[i][j-1]+1, m[i-1][j-1] + (a[i-1]===b[j-1]?0:1));
+    if (i > 1 && j > 1 && a[i-1] === b[j-2] && a[i-2] === b[j-1]) m[i][j] = Math.min(m[i][j], m[i-2][j-2] + 1); }
   return m[a.length][b.length];
 }
 
