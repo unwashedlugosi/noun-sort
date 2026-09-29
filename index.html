@@ -74,6 +74,18 @@ button{cursor:pointer}
 .tag.C{background:var(--concrete-soft);color:var(--concrete)}
 .tag.A{background:var(--abstract-soft);color:var(--abstract)}
 .plink{color:var(--muted)}
+.refresh-cta{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 18px;border-radius:14px;background:var(--abstract-soft);border:2px solid var(--abstract)}
+.refresh-cta h2{font-size:22px;color:var(--abstract)} .refresh-cta p{margin:4px 0 0}
+.ltitle{font-size:clamp(24px,6vw,30px)}
+.lbody{margin:0;font-size:19px;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips .tag{font-size:15px;padding:4px 12px}
+.chip{padding:4px 12px;border-radius:999px;border:1px solid var(--line);font-size:15px}
+table.pairs{border-collapse:collapse;width:100%;max-width:360px;font-size:18px}
+table.pairs th,table.pairs td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+.trap{color:var(--abstract);font-weight:700}
+.cheat{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:14px;border:2px dashed var(--line)}
+.cheat p{margin:0}
 .save{font-size:13px;color:var(--muted);text-align:center}
 
 /* round */
@@ -188,11 +200,11 @@ function pickBalanced(pool, n){
 function buildLevelRound(level){
   const cur = ITEMS.filter(i => i.lv === level);
   let q = pickBalanced(cur, level === 1 ? ROUND_SIZE : 7);
-  if (level > 1) q = q.concat(pickBalanced(ITEMS.filter(i => i.lv < level), ROUND_SIZE - q.length));
+  if (level > 1) q = q.concat(pickBalanced(ITEMS.filter(i => i.lv >= 1 && i.lv < level), ROUND_SIZE - q.length));
   return shuffle(q);
 }
 function buildTestRound(){
-  return shuffle(pickBalanced(ITEMS.filter(i => i.t === "sentence"), TEST_SIZE));
+  return shuffle(pickBalanced(ITEMS.filter(i => i.lv >= 1 && i.t === "sentence"), TEST_SIZE));
 }
 
 /* ---------- Data ----------
@@ -252,9 +264,13 @@ async function saveAll(roundDoc){
 }
 
 /* ---------- Round flow ---------- */
-async function startRound(mode, level){
+const quiet = mode => mode === "test" || mode === "refresher";   // no feedback until the end
+async function startRound(mode, level, list){
   await refresh(); if (mode === "level") level = Math.min(level, progress.level);
-  const items = mode === "test" ? buildTestRound() : buildLevelRound(level);
+  const items = mode === "test" ? buildTestRound()
+    : mode === "refresher" ? REFRESHER_TEST.map(id => BY_ID[id])
+    : mode === "retry" ? shuffle(list)
+    : buildLevelRound(level);
   round = {mode, level, queue: items.map(item => ({item, retry:false})), base: items.length, i:0, results:[], answered:false, nudge:"", fresh:true};
   screen = "round";
   render();
@@ -271,9 +287,9 @@ function grade(ok, detail){
   round.detail = Object.assign({ok}, detail);
   if (!q.retry){
     recordFirst(q.item, ok);
-    if (!ok && round.mode === "level") round.queue.push({item:q.item, retry:true});
+    if (!ok && (round.mode === "level" || round.mode === "retry")) round.queue.push({item:q.item, retry:true});
   }
-  if (round.mode === "test"){ next(); return; }
+  if (quiet(round.mode)){ next(); return; }
   render();
   const nb = document.getElementById("next"); if (nb) nb.focus();
 }
@@ -300,6 +316,13 @@ async function finishRound(){
     } else {
       progress.passStreak = 0; message = "Keep going. Get 8 or better twice in a row (or a perfect round) to move up.";
     }
+  } else if (round.mode === "refresher"){
+    message = score === total ? "Perfect. You're ready for tomorrow."
+      : score >= total - 2 ? "You're ready. Read the explanations below for the ones you missed."
+      : score >= total - 5 ? "Nearly there. Read the explanations below, then try the missed ones again."
+      : "Read the explanations below, then try the missed ones again. You know more than you think.";
+  } else if (round.mode === "retry"){
+    message = "Nice work going back over those.";
   } else if (round.mode === "test"){
     message = score >= Math.ceil(total * 0.9) ? "Test-ready." : "Look over the ones you missed, then try another round.";
   } else {
@@ -353,6 +376,9 @@ function renderHome(){
   }));
   app.replaceChildren(
     header(),
+    h("section", {class:"refresh-cta"},
+      h("div", {}, h("h2", {}, "15-minute refresher"), h("p", {class:"muted"}, "Quick lessons on the big ideas and the three traps, then a 15-question confidence test.")),
+      h("button", {class:"btn", onclick: startLearn}, "Start refresher")),
     h("section", {class:"hero"},
       h("div", {class:"eyebrow"}, progress.cleared ? "All levels cleared" : "Level " + lv + " of " + LEVELS.length),
       h("h2", {}, progress.cleared ? "Keep it fresh with a practice test." : cur.name + ": " + cur.blurb),
@@ -372,10 +398,10 @@ function renderRound(){
   const dots = h("div", {class:"dots", "aria-label":"Question " + Math.min(round.i+1, round.base) + " of " + round.base},
     Array.from({length: round.base}, (_,k) => {
       const r = round.results[k];
-      const cls = r ? (round.mode === "test" ? "done" : (r.ok ? "ok" : "no")) : (k === round.i ? "now" : "");
+      const cls = r ? (quiet(round.mode) ? "done" : (r.ok ? "ok" : "no")) : (k === round.i ? "now" : "");
       return h("i", {class: cls});
     }));
-  const title = round.mode === "test" ? "Practice test" : "Level " + round.level + " · " + LEVELS[round.level-1].name;
+  const title = {test:"Practice test", refresher:"Refresher · Part 2 of 2 · Confidence test", retry:"Try the missed ones again"}[round.mode] || "Level " + round.level + " · " + LEVELS[round.level-1].name;
   const card = h("div", {class:"card" + (round.fresh ? " enter" : "")});
   round.fresh = false;
   if (q.retry) card.append(h("div", {class:"retry"}, "Try this one again"));
@@ -430,8 +456,8 @@ function renderRound(){
     }
   }
 
-  if (d && round.mode !== "test") card.append(feedback(it, d));
-  if (round.answered && round.mode !== "test")
+  if (d && !quiet(round.mode)) card.append(feedback(it, d));
+  if (round.answered && !quiet(round.mode))
     card.append(h("button", {id:"next", class:"btn", onclick: next}, round.i + 1 >= round.queue.length ? "See results" : "Next"));
 
   app.replaceChildren(
@@ -454,36 +480,90 @@ function feedback(it, d){
     if (it.a === "A") extra = suffixClue(targetOf(it));
   }
   return h("div", {class:"fb " + (d.ok ? "ok" : "no"), role:"status"},
-    h("h3", {}, head), h("div", {}, it.why), extra ? h("div", {class:"clue"}, extra) : null);
+    h("h3", {}, head), h("div", {}, it.why), extra ? h("div", {class:"clue"}, extra) : null,
+    !d.ok && it.trap ? h("div", {class:"clue"}, TRAPS[it.trap]) : null);
 }
 
 function renderSummary(){
   const s = lastSummary;
   const nextLevel = s.mode === "level" && s.advanced && !progress.cleared ? progress.level : s.level;
+  const again = s.missed.map(id => BY_ID[id]).filter(Boolean);
+  const primary = s.mode === "refresher" || s.mode === "retry"
+      ? (again.length ? h("button", {class:"btn", onclick: () => startRound("retry", null, again)}, "Try the missed ones again") : null)
+    : s.mode === "test"
+      ? h("button", {class:"btn", onclick: () => startRound("test")}, "Another practice test")
+      : h("button", {class:"btn", onclick: () => startRound("level", nextLevel)}, s.advanced && !progress.cleared ? "Play level " + nextLevel : "Play again");
   app.replaceChildren(
     header(),
     h("section", {class:"hero"},
-      h("div", {class:"eyebrow"}, s.mode === "test" ? "Practice test" : "Level " + s.level + " · " + LEVELS[s.level-1].name),
+      h("div", {class:"eyebrow"}, {test:"Practice test", refresher:"Confidence test", retry:"Missed ones, again"}[s.mode] || "Level " + s.level + " · " + LEVELS[s.level-1].name),
       h("div", {class:"score"}, s.score + " / " + s.total),
       h("h2", {}, s.message),
-      h("div", {class:"row"},
-        s.mode === "test"
-          ? h("button", {class:"btn", onclick: () => startRound("test")}, "Another practice test")
-          : h("button", {class:"btn", onclick: () => startRound("level", nextLevel)}, s.advanced && !progress.cleared ? "Play level " + nextLevel : "Play again"),
-        h("button", {class:"btn ghost", onclick: () => { screen = "home"; render(); }}, "Home"))),
+      h("div", {class:"row"}, primary,
+        h("button", {class: primary ? "btn ghost" : "btn", onclick: () => { screen = "home"; render(); }}, "Home"))),
     s.missed.length ? h("section", {class:"hero"},
-      h("h3", {}, "Look these over"),
+      h("h3", {}, s.mode === "refresher" ? "Why the missed ones work the way they do" : "Look these over"),
       h("ul", {class:"misslist"}, s.missed.map(id => { const it = BY_ID[id], k = itemKind(it);
         return h("li", {},
           h("div", {}, h("b", {}, itemPlain(it)),
             " ", k && it.t !== "tap" ? h("span", {class:"tag " + k}, label(k)) : null),
           it.t === "tap" ? h("div", {}, "The " + label(it.ask) + " noun: ", h("b", {}, targetOf(it))) : null,
-          h("div", {class:"small muted"}, it.why)); }))) : null,
+          h("div", {class:"small muted"}, it.why),
+          it.trap ? h("div", {class:"small trap"}, TRAPS[it.trap]) : null); }))) : null,
+    s.mode === "refresher" || s.mode === "retry" ? cheatSheet() : null,
     saveLine());
 }
 
+/* ---------- Refresher lessons ---------- */
+let learn = null;
+function startLearn(){ learn = {i:0, detail:null}; screen = "learn"; render(); window.scrollTo(0, 0); }
+function learnAnswer(k){
+  const it = BY_ID[LESSONS[learn.i].check];
+  if (learn.detail) return;
+  learn.detail = {ok: k === it.a, pick: k}; render();
+  const nb = document.getElementById("next"); if (nb) nb.focus();
+}
+function learnNext(){
+  if (learn.i + 1 >= LESSONS.length){ learn = null; startRound("refresher"); return; }
+  learn.i++; learn.detail = null; render(); window.scrollTo(0, 0);
+}
+function cheatSheet(){
+  return h("section", {class:"cheat"},
+    h("h3", {}, "Tonight's cheat sheet"),
+    h("p", {}, h("b", {}, "Five-senses test: "), "can I see, hear, touch, taste, or smell it? One yes = concrete. All no = abstract."),
+    h("p", {}, TRAPS.sound), h("p", {}, TRAPS.hidden), h("p", {}, TRAPS.pair));
+}
+function renderLearn(){
+  const L = LESSONS[learn.i], it = L.check ? BY_ID[L.check] : null, d = learn.detail;
+  const dots = h("div", {class:"dots", "aria-label":"Lesson " + (learn.i+1) + " of " + LESSONS.length},
+    LESSONS.map((_, k) => h("i", {class: k < learn.i ? "done" : k === learn.i ? "now" : ""})));
+  const card = h("div", {class:"card enter"},
+    h("h2", {class:"ltitle"}, L.title),
+    L.body.map(t => h("p", {class:"lbody"}, t)));
+  if (L.examples) card.append(h("div", {class:"chips"}, L.examples.map(([w, kind]) => h("span", {class:"chip"}, h("b", {}, w), " · " + kind))));
+  if (L.chips) for (const k of Object.keys(L.chips)) card.append(h("div", {class:"chips"}, L.chips[k].map(w => h("span", {class:"tag " + k}, w))));
+  if (L.pairs) card.append(h("table", {class:"pairs"},
+    h("thead", {}, h("tr", {}, h("th", {}, h("span", {class:"tag C"}, "concrete")), h("th", {}, h("span", {class:"tag A"}, "abstract")))),
+    h("tbody", {}, L.pairs.map(([c, a]) => h("tr", {}, h("td", {}, c), h("td", {}, a))))));
+  if (it){
+    card.append(h("div", {class:"prompt"}, "Quick check: ", it.t === "word" ? "is \u201c" + it.text + "\u201d concrete or abstract?" : "is the underlined noun concrete or abstract?"));
+    if (it.t === "sentence"){ const [pre, rest] = it.text.split("["), [noun, post] = rest.split("]"); card.append(h("div", {class:"big"}, pre, h("u", {class:"t"}, noun), post)); }
+    const choice = k => h("button", {class:"choice " + k + (d && (d.pick === k || it.a === k) ? " picked" : ""), disabled: !!d, onclick: () => learnAnswer(k)},
+      k === "C" ? "Concrete" : "Abstract", h("span", {class:"key"}, "press " + k));
+    card.append(h("div", {class:"sort"}, choice("C"), choice("A")));
+    if (d) card.append(feedback(it, d));
+  }
+  const last = learn.i + 1 >= LESSONS.length;
+  if (!it || d) card.append(h("button", {id:"next", class:"btn", onclick: learnNext}, last ? "Start the test" : "Next"));
+  app.replaceChildren(
+    h("div", {class:"rhead"}, h("button", {class:"linkbtn", onclick: () => { learn = null; screen = "home"; render(); }}, "← Home"), dots),
+    h("div", {class:"eyebrow"}, "Refresher · Part 1 of 2 · Learn"),
+    card);
+}
+
 function render(){
-  if (screen === "round" && round) renderRound();
+  if (screen === "learn" && learn) renderLearn();
+  else if (screen === "round" && round) renderRound();
   else if (screen === "summary" && lastSummary) renderSummary();
   else { screen = "home"; renderHome(); }
 }
@@ -507,6 +587,9 @@ function lev(a, b){
 }
 
 document.addEventListener("keydown", e => {
+  if (screen === "learn" && learn && !learn.detail && LESSONS[learn.i].check && !e.metaKey && !e.ctrlKey && !e.altKey){
+    const k = e.key.toLowerCase(); if (k === "c" || k === "a") learnAnswer(k.toUpperCase()); return;
+  }
   if (screen !== "round" || !round || round.answered || e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.target && e.target.tagName === "INPUT") return;
   const it = round.queue[round.i].item;
